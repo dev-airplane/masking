@@ -1,16 +1,21 @@
 (() => {
   const state = {
     roster: [],
+    givenNameOverrides: {},
     sourceText: '',
     detections: [],
     mapping: {},
-    pendingSelection: null
+    pendingSelection: null,
+    pendingMarkId: null
   };
 
   const rosterInput = document.getElementById('rosterInput');
   const rosterBtn = document.getElementById('rosterBtn');
   const rosterChips = document.getElementById('rosterChips');
-  const matchGivenName = document.getElementById('matchGivenName');
+  const rosterFeedback = document.getElementById('rosterFeedback');
+  const manualSurname = document.getElementById('manualSurname');
+  const manualGivenName = document.getElementById('manualGivenName');
+  const manualAddBtn = document.getElementById('manualAddBtn');
 
   const sourceInput = document.getElementById('sourceInput');
   const maskBtn = document.getElementById('maskBtn');
@@ -18,6 +23,7 @@
   const detectSection = document.getElementById('detectSection');
   const detectView = document.getElementById('detectView');
   const selectionMenu = document.getElementById('selectionMenu');
+  const markMenu = document.getElementById('markMenu');
   const confirmMaskBtn = document.getElementById('confirmMaskBtn');
 
   const resultSection = document.getElementById('resultSection');
@@ -33,9 +39,14 @@
   const unresolvedWarning = document.getElementById('unresolvedWarning');
 
   const resetBtn = document.getElementById('resetBtn');
+  const resetRosterBtn = document.getElementById('resetRosterBtn');
   const exampleRosterBtn = document.getElementById('exampleRosterBtn');
+  const sourceSection = document.getElementById('sourceSection');
+  const responseSection = document.getElementById('responseSection');
+  const chatgptLinkRow = document.getElementById('chatgptLinkRow');
 
   const ROSTER_STORAGE_KEY = 'masking_roster';
+  const GIVEN_NAME_OVERRIDES_KEY = 'masking_given_name_overrides';
 
   function escapeHtml(str) {
     return str.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -58,6 +69,23 @@
     }
   }
 
+  function saveGivenNameOverrides() {
+    try {
+      localStorage.setItem(GIVEN_NAME_OVERRIDES_KEY, JSON.stringify(state.givenNameOverrides));
+    } catch (e) {
+      /* localStorage 사용 불가 시 조용히 무시 */
+    }
+  }
+
+  function loadGivenNameOverrides() {
+    try {
+      const raw = localStorage.getItem(GIVEN_NAME_OVERRIDES_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
   function renderRosterChips() {
     rosterChips.innerHTML = '';
     state.roster.forEach((name) => {
@@ -77,18 +105,73 @@
       chip.appendChild(removeBtn);
       rosterChips.appendChild(chip);
     });
+    sourceSection.hidden = state.roster.length === 0;
   }
 
   state.roster = loadRoster();
+  state.givenNameOverrides = loadGivenNameOverrides();
   renderRosterChips();
 
+  function showRosterFeedback(message) {
+    rosterFeedback.textContent = message;
+    rosterFeedback.hidden = !message;
+  }
+
+  // 명렬표가 아니라 원문(문장)을 잘못 붙여넣은 것 같은지 대략 판별.
+  // 줄당 평균 글자 수가 길면 표/목록이 아니라 문장일 가능성이 큼.
+  function looksLikeProse(rawText) {
+    const lines = rawText.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    if (lines.length === 0) return false;
+    return rawText.length / lines.length > 40;
+  }
+
   rosterBtn.addEventListener('click', () => {
-    Masking.parseRoster(rosterInput.value).forEach((name) => {
-      if (!state.roster.includes(name)) state.roster.push(name);
-    });
+    const parsed = Masking.parseRoster(rosterInput.value);
+    const newNames = parsed.filter((name) => !state.roster.includes(name));
+
+    if (newNames.length === 0) {
+      showRosterFeedback('이름을 찾지 못했습니다.');
+      return;
+    }
+
+    if (looksLikeProse(rosterInput.value)) {
+      const ok = window.confirm(`명렬표가 맞나요? ${newNames.length}명의 이름이 발견되었습니다.`);
+      if (!ok) return;
+    }
+
+    newNames.forEach((name) => state.roster.push(name));
     rosterInput.value = '';
+    showRosterFeedback('');
     renderRosterChips();
     saveRoster();
+  });
+
+  resetRosterBtn.addEventListener('click', () => {
+    state.roster = [];
+    state.givenNameOverrides = {};
+    showRosterFeedback('');
+    renderRosterChips();
+    saveRoster();
+    saveGivenNameOverrides();
+  });
+
+  manualAddBtn.addEventListener('click', () => {
+    const surname = manualSurname.value.trim();
+    const given = manualGivenName.value.trim();
+    const full = `${surname}${given}`;
+    if (!full) return;
+    if (!state.roster.includes(full)) {
+      state.roster.push(full);
+      renderRosterChips();
+      saveRoster();
+    }
+    // 성/이름을 따로 입력받았으니 추측하지 않고 그대로 "성 뗀 이름"으로 기억해둠.
+    if (surname && given) {
+      state.givenNameOverrides[full] = given;
+      saveGivenNameOverrides();
+    }
+    manualSurname.value = '';
+    manualGivenName.value = '';
   });
 
   exampleRosterBtn.addEventListener('click', () => {
@@ -99,6 +182,10 @@
     btn.addEventListener('click', () => {
       navigator.clipboard.writeText(Masking.TEST_DATA.sources[Number(btn.dataset.idx)]);
     });
+  });
+
+  document.getElementById('copyMaskedToResponseBtn').addEventListener('click', () => {
+    responseInput.value = maskedOutput.value;
   });
 
   function renderDetectView() {
@@ -123,7 +210,49 @@
     if (!mark) return;
     const d = state.detections.find((x) => x.id === mark.dataset.id);
     if (!d) return;
+
+    if (d.type === 'name' && !d.confirmed) {
+      state.pendingMarkId = d.id;
+      const rect = mark.getBoundingClientRect();
+      markMenu.style.left = `${rect.left}px`;
+      markMenu.style.top = `${Math.max(rect.top - 44, 8)}px`;
+      markMenu.hidden = false;
+      return;
+    }
+
     d.checked = !d.checked;
+    renderDetectView();
+  });
+
+  markMenu.querySelector('[data-action="remove"]').addEventListener('click', () => {
+    if (!state.pendingMarkId) return;
+    state.detections = state.detections.filter((d) => d.id !== state.pendingMarkId);
+    state.detections = Masking.assignTokens(state.detections);
+    markMenu.hidden = true;
+    state.pendingMarkId = null;
+    renderDetectView();
+  });
+
+  markMenu.querySelector('[data-action="confirm"]').addEventListener('click', () => {
+    if (!state.pendingMarkId) return;
+    const target = state.detections.find((d) => d.id === state.pendingMarkId);
+    if (target) {
+      const trimmed = target.value.trim();
+      state.detections.forEach((d) => {
+        if (d.type === 'name' && d.value === trimmed && d.source === 'heuristic') {
+          d.source = 'roster';
+          d.canonical = trimmed;
+        }
+      });
+      if (trimmed && !state.roster.includes(trimmed)) {
+        state.roster.push(trimmed);
+        renderRosterChips();
+        saveRoster();
+      }
+      state.detections = Masking.assignTokens(state.detections);
+    }
+    markMenu.hidden = true;
+    state.pendingMarkId = null;
     renderDetectView();
   });
 
@@ -153,6 +282,7 @@
 
   document.addEventListener('mousedown', (e) => {
     if (!selectionMenu.contains(e.target)) selectionMenu.hidden = true;
+    if (!markMenu.contains(e.target)) markMenu.hidden = true;
   });
 
   selectionMenu.querySelectorAll('button').forEach((btn) => {
@@ -201,11 +331,14 @@
   maskBtn.addEventListener('click', () => {
     state.sourceText = sourceInput.value;
     state.detections = Masking.detectAll(state.sourceText, state.roster, {
-      matchGivenName: matchGivenName.checked
+      matchGivenName: true,
+      givenNameOverrides: state.givenNameOverrides
     });
     renderDetectView();
     detectSection.hidden = false;
     resultSection.hidden = true;
+    responseSection.hidden = true;
+    chatgptLinkRow.hidden = true;
   });
 
   confirmMaskBtn.addEventListener('click', () => {
@@ -213,6 +346,8 @@
     state.mapping = mapping;
     maskedOutput.value = maskedText;
     resultSection.hidden = false;
+    responseSection.hidden = false;
+    chatgptLinkRow.hidden = false;
   });
 
   copyMaskedBtn.addEventListener('click', () => {
@@ -237,6 +372,7 @@
 
   resetBtn.addEventListener('click', () => {
     state.roster = [];
+    state.givenNameOverrides = {};
     state.sourceText = '';
     state.detections = [];
     state.mapping = {};
@@ -248,10 +384,13 @@
     restoredOutput.value = '';
     renderRosterChips();
     saveRoster();
+    saveGivenNameOverrides();
     detectView.innerHTML = '';
     selectionMenu.hidden = true;
     detectSection.hidden = true;
     resultSection.hidden = true;
+    responseSection.hidden = true;
+    chatgptLinkRow.hidden = true;
     restoredSection.hidden = true;
     unresolvedWarning.hidden = true;
   });

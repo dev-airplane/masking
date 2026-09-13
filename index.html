@@ -5,26 +5,38 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>개인정보 마스킹</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
-<link rel="stylesheet" href="style.css?v=3" />
+<link rel="stylesheet" href="style.css?v=10" />
 </head>
 <body>
 <div class="wrap">
   <h1>개인정보 마스킹</h1>
+  <p class="subtitle">AI 입력 전에 개인정보 지키기</p>
 
   <section class="card">
     <div class="label-row">
       <label for="rosterInput">명렬표</label>
       <button type="button" class="link-btn" id="exampleRosterBtn">예시 복사</button>
     </div>
+    <p id="rosterFeedback" class="feedback" hidden></p>
     <textarea id="rosterInput" rows="3" placeholder="이름 붙여넣기"></textarea>
-    <div class="row row-between">
-      <label class="checkbox"><input type="checkbox" id="matchGivenName" checked /> 성 떼고 이름만도 탐지</label>
+    <p class="hint">명렬표는 서버로 전송되지 않고 이 브라우저에만 저장됩니다.</p>
+    <div class="row">
+      <button id="resetRosterBtn" class="ghost">명단 초기화</button>
       <button id="rosterBtn">명단 등록</button>
     </div>
     <div id="rosterChips" class="chips"></div>
+
+    <div class="manual-add">
+      <label for="manualSurname">직접 추가</label>
+      <div class="manual-add-row">
+        <input type="text" id="manualSurname" class="mini-input" placeholder="성" />
+        <input type="text" id="manualGivenName" class="mini-input" placeholder="이름" />
+        <button id="manualAddBtn">추가</button>
+      </div>
+    </div>
   </section>
 
-  <section class="card">
+  <section class="card" id="sourceSection" hidden>
     <div class="label-row">
       <label for="sourceInput">원문</label>
       <div class="example-btns">
@@ -43,17 +55,24 @@
 
   <section class="card" id="detectSection" hidden>
     <label>탐지 결과</label>
+    <p class="hint">클릭 및 드래그로 마스킹 등록과 취소가 가능합니다.<br />분홍색 이름은 아직 확인되지 않은 추정 이름입니다.</p>
     <div id="detectView" class="detect-view"></div>
     <div id="selectionMenu" class="selection-menu" hidden>
       <button type="button" data-type="name">이름</button>
       <button type="button" data-type="phone">전화번호</button>
       <button type="button" data-type="org">소속</button>
+      <button type="button" data-type="class">학년/반</button>
+    </div>
+    <div id="markMenu" class="selection-menu" hidden>
+      <button type="button" data-action="confirm">등록</button>
+      <button type="button" data-action="remove">제거</button>
     </div>
     <div class="legend">
       <span class="legend-item"><span class="swatch roster"></span>등록된 이름</span>
       <span class="legend-item"><span class="swatch guess"></span>추정 이름</span>
       <span class="legend-item"><span class="swatch phone"></span>전화번호</span>
       <span class="legend-item"><span class="swatch org"></span>소속</span>
+      <span class="legend-item"><span class="swatch class"></span>학년/반</span>
     </div>
     <div class="row">
       <button id="confirmMaskBtn" class="primary">확정</button>
@@ -68,8 +87,15 @@
     </div>
   </section>
 
-  <section class="card">
-    <label for="responseInput">AI 응답</label>
+  <div class="chatgpt-link-row" id="chatgptLinkRow" hidden>
+    <a href="https://chatgpt.com" target="_blank" rel="noopener noreferrer" class="chatgpt-link">ChatGPT에 입력하기 ↗</a>
+  </div>
+
+  <section class="card" id="responseSection" hidden>
+    <div class="label-row">
+      <label for="responseInput">AI 응답</label>
+      <button type="button" class="link-btn" id="copyMaskedToResponseBtn">마스킹 결과 복사</button>
+    </div>
     <textarea id="responseInput" rows="8"></textarea>
     <div class="row">
       <button id="restoreBtn" class="primary">복원하기</button>
@@ -85,7 +111,7 @@
     <div id="unresolvedWarning" class="warning" hidden></div>
   </section>
 </div>
-<script src="masking.js?v=6"></script>
-<script src="app.js?v=4"></script>
+<script src="masking.js?v=15"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>

@@ -19,7 +19,13 @@ body {
 h1 {
   font-size: 22px;
   font-weight: 700;
+  margin: 0 0 6px;
+}
+
+.subtitle {
   margin: 0 0 32px;
+  font-size: 14px;
+  color: #6b7280;
 }
 
 .card {
@@ -28,6 +34,23 @@ h1 {
   border-radius: 14px;
   padding: 24px;
   margin-bottom: 20px;
+}
+
+.chatgpt-link-row {
+  display: flex;
+  justify-content: center;
+  margin: -8px 0 20px;
+}
+
+.chatgpt-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.chatgpt-link:hover {
+  text-decoration: underline;
 }
 
 label {
@@ -61,12 +84,12 @@ label {
   margin-bottom: 10px;
   font-size: 12px;
   font-weight: 500;
-  color: #9ca3af;
+  color: #2563eb;
   cursor: pointer;
 }
 
 .link-btn:hover {
-  color: #1a1a1a;
+  color: #1d4ed8;
   background: none;
   text-decoration: underline;
 }
@@ -117,6 +140,43 @@ textarea[readonly] {
   color: #4b5563;
   font-weight: 500;
   margin: 0;
+}
+
+.feedback {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #dc2626;
+}
+
+.manual-add {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.manual-add label {
+  margin-bottom: 8px;
+}
+
+.manual-add-row {
+  display: flex;
+  gap: 8px;
+}
+
+.mini-input {
+  flex: 1;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  background: #fafafa;
+}
+
+.mini-input:focus {
+  outline: none;
+  border-color: #9ca3af;
+  background: #fff;
 }
 
 button {
@@ -211,9 +271,19 @@ mark.hl.type-org {
   background: #bbf7d0;
 }
 
+mark.hl.type-class {
+  background: #ddd6fe;
+}
+
 mark.hl.off {
   background: transparent;
   text-decoration: line-through;
+  color: #9ca3af;
+}
+
+.hint {
+  margin: 10px 0 14px;
+  font-size: 12px;
   color: #9ca3af;
 }
 
@@ -221,7 +291,7 @@ mark.hl.off {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
-  margin-top: 14px;
+  margin-top: 10px;
 }
 
 .legend-item {
@@ -243,6 +313,7 @@ mark.hl.off {
 .swatch.guess { background: #fbcfe8; }
 .swatch.phone { background: #bfdbfe; }
 .swatch.org { background: #bbf7d0; }
+.swatch.class { background: #ddd6fe; }
 
 .selection-menu {
   position: fixed;

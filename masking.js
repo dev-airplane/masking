@@ -17,9 +17,12 @@ const Masking = (() => {
   );
   const PHONE_RE = /\b(01[016789]|02|0[3-6][1-5])[-.\s]?\d{3,4}[-.\s]?\d{4}\b/g;
   const ORG_RE = /[가-힣A-Za-z0-9]{2,20}(초등학교|중학교|고등학교|유치원|대학교|대학|학원|병원|주식회사|㈜|재단|협회|연구소|센터)/g;
-  const CLASS_RE = /\d+\s?학년\s?\d+\s?반/g;
+  // 숫자 학년·반 ("1학년 3반")과 한글 이름 반 ("해바라기반") 둘 다 잡되, 소속(학교명)과는 별도 카테고리로 취급
+  const CLASS_NUMERIC_RE = /\d+\s?학년\s?\d+\s?반/g;
+  const CLASS_NAMED_RE = /(?<![가-힣])[가-힣]{1,4}반(?![가-힣])/g;
+  const CLASS_NAMED_STOPWORDS = new Set(['일반', '후반', '전반', '초반', '중반']);
 
-  const TOKEN_PREFIX = { name: 'NAME', phone: 'PHONE', org: 'ORG' };
+  const TOKEN_PREFIX = { name: 'NAME', phone: 'PHONE', org: 'ORG', class: 'CLASS' };
   const CONFIRMED_SOURCES = new Set(['roster', 'roster-given', 'manual']);
   const TOKEN_OPEN = '〔';
   const TOKEN_CLOSE = '〕';
@@ -76,6 +79,20 @@ const Masking = (() => {
     return result;
   }
 
+  function hasBatchim(char) {
+    const code = char.charCodeAt(0) - 0xac00;
+    if (code < 0 || code > 11171) return false;
+    return code % 28 !== 0;
+  }
+
+  // "하늘" 같이 받침 있는 이름은 실제 명사(하늘=sky)와 겹칠 수 있지만 이건 추후 과제로 미룸.
+  // 일단은 받침 있는 이름 뒤에 접미 '이' 또는 호격 '아/야'가 바로 붙으면 이름으로 보고 마스킹함.
+  function findStandaloneGivenNameOccurrences(text, given) {
+    const occurrences = findStandaloneOccurrences(text, given);
+    if (!hasBatchim(given[given.length - 1])) return occurrences;
+    return occurrences.filter((occ) => /^[이아야]/.test(text[occ.end] || ''));
+  }
+
   function getGivenName(fullName) {
     const compound = SURNAMES.find((s) => s.length === 2 && fullName.startsWith(s));
     const surnameLen = compound ? 2 : 1;
@@ -93,10 +110,11 @@ const Masking = (() => {
     }
 
     if (options.matchGivenName) {
+      const overrides = options.givenNameOverrides || {};
       for (const name of roster) {
-        const given = getGivenName(name);
+        const given = overrides[name] || getGivenName(name);
         if (!given) continue;
-        for (const occ of findStandaloneOccurrences(text, given)) {
+        for (const occ of findStandaloneGivenNameOccurrences(text, given)) {
           if (!detections.some((d) => d.type === 'name' && overlaps(d, occ))) {
             detections.push({ type: 'name', value: given, canonical: name, start: occ.start, end: occ.end, source: 'roster-given' });
           }
@@ -136,10 +154,19 @@ const Masking = (() => {
       detections.push({ type: 'org', value: match[0], start: match.index, end: match.index + match[0].length, source: 'regex' });
     }
 
-    CLASS_RE.lastIndex = 0;
-    while ((match = CLASS_RE.exec(text)) !== null) {
-      const cand = { type: 'org', value: match[0], start: match.index, end: match.index + match[0].length, source: 'regex' };
-      if (!detections.some((d) => d.type === 'org' && overlaps(d, cand))) {
+    CLASS_NUMERIC_RE.lastIndex = 0;
+    while ((match = CLASS_NUMERIC_RE.exec(text)) !== null) {
+      const cand = { type: 'class', value: match[0], start: match.index, end: match.index + match[0].length, source: 'regex' };
+      if (!detections.some((d) => d.type === 'class' && overlaps(d, cand))) {
+        detections.push(cand);
+      }
+    }
+
+    CLASS_NAMED_RE.lastIndex = 0;
+    while ((match = CLASS_NAMED_RE.exec(text)) !== null) {
+      if (CLASS_NAMED_STOPWORDS.has(match[0])) continue;
+      const cand = { type: 'class', value: match[0], start: match.index, end: match.index + match[0].length, source: 'regex' };
+      if (!detections.some((d) => d.type === 'class' && overlaps(d, cand))) {
         detections.push(cand);
       }
     }
@@ -154,7 +181,7 @@ const Masking = (() => {
     // 토큰으로 분리해야 복원 시 어느 자리가 어떤 표기였는지 정확히 되돌릴 수 있음.
     const nameNumbers = new Map();
     const otherTokens = new Map();
-    const counters = { name: 0, phone: 0, org: 0 };
+    const counters = { name: 0, phone: 0, org: 0, class: 0 };
     for (const d of detections) {
       if (d.type === 'name') {
         const identityKey = d.canonical || d.value;
@@ -207,29 +234,30 @@ const Masking = (() => {
   }
 
   const TEST_DATA = {
-    roster: `번호,학생명,성별,생년월일,연락처,보호자 연락처,소속
-1,김하늘,여,2012-03-14,010-3827-1469,010-9274-5308,한빛중학교 1학년 3반
-2,이도윤,남,2012-07-28,010-4619-2073,010-8162-4490,한빛중학교 1학년 3반
-3,박서연,여,2012-01-09,010-2948-6731,010-7085-1936,한빛중학교 1학년 3반
-4,최민준,남,2012-11-22,010-5730-8194,010-6391-2750,한빛중학교 1학년 3반
-5,정유진,여,2012-05-17,010-8164-3925,010-4527-6813,한빛중학교 1학년 3반
-6,강현우,남,2012-09-03,010-3472-1658,010-9840-2671,한빛중학교 1학년 3반
-7,윤지아,여,2012-02-26,010-6295-7480,010-5374-9206,한빛중학교 1학년 3반
-8,조우진,남,2012-06-11,010-7851-3204,010-3648-7059,한빛중학교 1학년 3반
-9,한예린,여,2012-12-05,010-2386-9517,010-6719-4382,한빛중학교 1학년 3반
-10,오지훈,남,2012-04-19,010-9547-2068,010-2893-6174,한빛중학교 1학년 3반
-11,서다은,여,2012-08-30,010-4120-7865,010-7451-3098,한빛중학교 1학년 3반
-12,임건우,남,2012-10-16,010-6873-1452,010-5029-8743,한빛중학교 1학년 3반
-13,신채원,여,2012-03-02,010-3258-6091,010-8907-2164,한빛중학교 1학년 3반
-14,문태오,남,2012-07-07,010-7416-8390,010-4185-9627,한빛중학교 1학년 3반
-15,배수아,여,2012-01-25,010-5692-4718,010-7360-1845,한빛중학교 1학년 3반
-16,권시우,남,2012-09-12,010-8031-6257,010-2946-7538,한빛중학교 1학년 3반
-17,송아린,여,2012-05-08,010-4765-9183,010-8251-4067,한빛중학교 1학년 3반
-18,황준서,남,2012-11-29,010-6128-3749,010-5679-2130,한빛중학교 1학년 3반
-19,노은재,남,2012-02-15,010-3594-8260,010-9043-6581,한빛중학교 1학년 3반
-20,장나윤,여,2012-06-23,010-7280-5196,010-6382-1475,한빛중학교 1학년 3반
-21,류지호,남,2012-10-01,010-4839-7025,010-7916-3840,한빛중학교 1학년 3반
-22,백소율,여,2012-04-06,010-9517-2638,010-4268-9751,한빛중학교 1학년 3반`,
+    roster: `번호,이름
+1	김하늘
+2   이도윤	010-1234-5678
+3,박서연
+
+4  최민준   남
+5	정유진
+6 강현우
+7   윤지아
+8	조우진	010-9999-0000
+9  한예린
+10	오지훈
+11 서다은
+12  임건우
+13	신채원
+14 문태오
+15  배수아
+16	권시우
+17 송아린
+18  황준서
+19	노은재
+20 장나윤
+21  류지호
+22	백소율`,
     sources: [
       '안녕하세요, 한빛중학교 1학년 3반 박지훈 담임교사입니다. 민준이가 오늘 수업 태도에서 많이 발전했습니다. 질문에 차분히 답하고 모둠 활동에도 적극적으로 참여해 칭찬해 주었습니다. 가정에서도 격려 부탁드립니다.\n\n안녕하세요. 한빛중학교 1학년 3반 담임 박지훈입니다. 하늘이가 이번 주 금요일까지 제출해야 하는 과학 탐구 보고서를 아직 제출하지 않았습니다. 작성 중 어려움이 있으면 학교에 알려 주시고, 가정에서도 제출 일정을 확인해 주시면 감사하겠습니다.\n\n안녕하세요, 한빛중학교 학생생활안전부 이민석 교사입니다. 우진이와 관련하여 짧은 상담을 진행하고자 합니다. 9월 17일(목) 16시 이후 통화 가능하신 시간을 회신 부탁드립니다. 문의: 010-5831-7462',
       '한빛중학교 학생회가 준비한 가을 별빛축제를 아래와 같이 개최합니다. 학부모님과 재학생 여러분의 많은 참여를 바랍니다.\n\n일시: 2026년 10월 16일(금) 16:00~19:30 / 장소: 한빛중학교 운동장 및 별관 체육관 / 주관: 학생자치회, 담당 교사 김소연(학생생활부)\n\n체험 부스 참여를 희망하는 학생은 9월 25일까지 담임교사에게 신청서를 제출해 주세요. 1학년 3반 부스 문의는 박지훈 담임교사(교내 213, 010-2748-6193)에게 연락 바랍니다. 행사 운영 문의는 학생회 담당 김소연 교사(010-5831-7462)에게 문의해 주세요.',
