@@ -5,113 +5,151 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>개인정보 마스킹</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
-<link rel="stylesheet" href="style.css?v=11" />
+<link rel="stylesheet" href="style.css?v=16" />
 </head>
 <body>
 <div class="wrap">
   <h1>개인정보 마스킹</h1>
   <p class="subtitle">AI 입력 전에 개인정보 지키기</p>
 
-  <section class="card">
-    <div class="label-row">
-      <label for="rosterInput">명렬표</label>
-      <button type="button" class="link-btn" id="exampleRosterBtn">예시 복사</button>
-    </div>
-    <p id="rosterFeedback" class="feedback" hidden></p>
-    <textarea id="rosterInput" rows="3" placeholder="이름 붙여넣기"></textarea>
-    <p class="hint">명렬표는 서버로 전송되지 않고 이 브라우저에만 저장됩니다.</p>
-    <div class="row">
-      <button id="resetRosterBtn" class="ghost">명단 초기화</button>
-      <button id="rosterBtn">명단 등록</button>
-    </div>
-    <div id="rosterChips" class="chips"></div>
-
-    <div class="manual-add">
-      <label for="manualSurname">직접 추가</label>
-      <div class="manual-add-row">
-        <input type="text" id="manualSurname" class="mini-input" placeholder="성" />
-        <input type="text" id="manualGivenName" class="mini-input" placeholder="이름" />
-        <button id="manualAddBtn">추가</button>
-      </div>
-    </div>
-  </section>
-
-  <section class="card" id="sourceSection" hidden>
-    <div class="label-row">
-      <label for="sourceInput">원문</label>
-      <div class="example-btns">
-        <button type="button" class="link-btn example-source-btn" data-idx="0">예시1 복사</button>
-        <button type="button" class="link-btn example-source-btn" data-idx="1">예시2 복사</button>
-        <button type="button" class="link-btn example-source-btn" data-idx="2">예시3 복사</button>
-        <button type="button" class="link-btn example-source-btn" data-idx="3">예시4 복사</button>
-      </div>
-    </div>
-    <textarea id="sourceInput" rows="8"></textarea>
-    <div class="row">
-      <button id="resetBtn" class="ghost">초기화</button>
-      <button id="maskBtn" class="primary">마스킹하기</button>
-    </div>
-  </section>
-
-  <section class="card" id="detectSection" hidden>
-    <label>탐지 결과</label>
-    <p class="hint">클릭 및 드래그로 마스킹 등록과 취소가 가능합니다.<br />분홍색 이름은 아직 확인되지 않은 추정 이름입니다.</p>
-    <div id="detectView" class="detect-view"></div>
-    <div id="selectionMenu" class="selection-menu" hidden>
-      <button type="button" data-type="name">이름</button>
-      <button type="button" data-type="phone">전화번호</button>
-      <button type="button" data-type="org">소속</button>
-      <button type="button" data-type="class">학년/반</button>
-    </div>
-    <div id="markMenu" class="selection-menu" hidden>
-      <button type="button" data-action="confirm">등록</button>
-      <button type="button" data-action="remove">제거</button>
-    </div>
-    <div class="legend">
-      <span class="legend-item"><span class="swatch roster"></span>등록된 이름</span>
-      <span class="legend-item"><span class="swatch guess"></span>추정 이름</span>
-      <span class="legend-item"><span class="swatch phone"></span>전화번호</span>
-      <span class="legend-item"><span class="swatch org"></span>소속</span>
-      <span class="legend-item"><span class="swatch class"></span>학년/반</span>
-    </div>
-    <div class="row">
-      <button id="confirmMaskBtn" class="primary">확정</button>
-    </div>
-  </section>
-
-  <section class="card" id="resultSection" hidden>
-    <label for="maskedOutput">마스킹 결과</label>
-    <textarea id="maskedOutput" rows="8" readonly></textarea>
-    <div class="row">
-      <button id="copyMaskedBtn">복사</button>
-    </div>
-  </section>
-
-  <div class="chatgpt-link-row" id="chatgptLinkRow" hidden>
-    <a href="https://chatgpt.com" target="_blank" rel="noopener noreferrer" class="chatgpt-link">ChatGPT에 입력하기 ↗</a>
+  <div class="tabs">
+    <button type="button" class="tab-btn active" data-tab="tabRoster">명렬표 입력</button>
+    <button type="button" class="tab-btn" data-tab="tabMask">마스킹하기</button>
+    <button type="button" class="tab-btn" data-tab="tabRestore">복원하기</button>
   </div>
 
-  <section class="card" id="responseSection" hidden>
-    <div class="label-row">
-      <label for="responseInput">AI 응답</label>
-      <button type="button" class="link-btn" id="copyMaskedToResponseBtn">마스킹 결과 복사</button>
-    </div>
-    <textarea id="responseInput" rows="8"></textarea>
-    <div class="row">
-      <button id="restoreBtn" class="primary">복원하기</button>
-    </div>
-  </section>
+  <div class="tab-panel" id="tabRoster">
+    <section class="card">
+      <div class="label-row">
+        <label for="rosterInput">명렬표</label>
+        <button type="button" class="link-btn" id="exampleRosterBtn">예시 넣기</button>
+      </div>
+      <textarea id="rosterInput" rows="3" placeholder="이름 붙여넣기"></textarea>
+      <p class="hint">명렬표는 서버로 전송되지 않고 이 브라우저에만 저장됩니다.</p>
+      <div class="row">
+        <button id="rosterBtn">명단 등록</button>
+      </div>
+      <div id="rosterChips" class="chips"></div>
 
-  <section class="card" id="restoredSection" hidden>
-    <label for="restoredOutput">복원 결과</label>
-    <textarea id="restoredOutput" rows="8" readonly></textarea>
-    <div class="row">
-      <button id="copyRestoredBtn">복사</button>
+      <div class="manual-add">
+        <label for="manualSurname">직접 추가</label>
+        <div class="manual-add-row">
+          <input type="text" id="manualSurname" class="mini-input" placeholder="성" />
+          <input type="text" id="manualGivenName" class="mini-input" placeholder="이름" />
+          <button id="manualAddBtn">추가</button>
+        </div>
+      </div>
+
+      <div class="danger-zone">
+        <button type="button" id="resetRosterBtn" class="ghost-link">명단 전체 초기화</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="tab-panel" id="tabMask" hidden>
+    <p id="rosterRequiredNotice" class="hint">먼저 '명렬표 입력' 탭에서 이름을 등록해주세요.</p>
+
+    <div class="mask-columns">
+      <div class="mask-col">
+        <section class="card" id="sourceSection" hidden>
+          <div id="editMode">
+            <div class="label-row">
+              <label for="sourceInput">원문</label>
+              <div class="example-btns">
+                <button type="button" class="link-btn example-source-btn" data-idx="0">예시1 넣기</button>
+                <button type="button" class="link-btn example-source-btn" data-idx="1">예시2 넣기</button>
+                <button type="button" class="link-btn example-source-btn" data-idx="2">예시3 넣기</button>
+                <button type="button" class="link-btn example-source-btn" data-idx="3">예시4 넣기</button>
+              </div>
+            </div>
+            <textarea id="sourceInput" rows="8"></textarea>
+            <div class="row">
+              <button id="resetBtn" class="ghost">초기화</button>
+              <button id="maskBtn" class="primary">마스킹하기</button>
+            </div>
+          </div>
+
+          <div id="reviewMode" hidden>
+            <label>탐지 결과</label>
+            <p class="hint">클릭 및 드래그로 마스킹 등록과 취소가 가능합니다.</p>
+            <div id="detectView" class="detect-view"></div>
+            <div id="guessNotice" class="guess-notice" hidden>
+              <span class="swatch guess"></span>
+              확인 필요 — 명렬표에는 없지만 이름으로 감지되었습니다. 클릭하면 마스킹할지 결정할 수 있습니다.
+            </div>
+            <div id="selectionMenu" class="selection-menu" hidden>
+              <button type="button" data-type="name">이름</button>
+              <button type="button" data-type="phone">전화번호</button>
+              <button type="button" data-type="org">소속</button>
+              <button type="button" data-type="class">학년/반</button>
+            </div>
+            <div id="markMenu" class="selection-menu" hidden>
+              <button type="button" data-action="confirm">등록</button>
+              <button type="button" data-action="remove">제거</button>
+            </div>
+            <div class="legend">
+              <span class="legend-item"><span class="swatch roster"></span>등록된 이름</span>
+              <span class="legend-item"><span class="swatch guess"></span>확인 필요</span>
+              <span class="legend-item"><span class="swatch phone"></span>전화번호</span>
+              <span class="legend-item"><span class="swatch org"></span>소속</span>
+              <span class="legend-item"><span class="swatch class"></span>학년/반</span>
+            </div>
+            <div class="row">
+              <button id="editSourceBtn" class="ghost">수정하기</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" id="mappingSection" hidden>
+          <label>치환 내역</label>
+          <div id="mappingList" class="mapping-list"></div>
+        </section>
+      </div>
+
+      <div class="mask-col">
+        <section class="card" id="resultSection" hidden>
+          <label for="maskedOutput">마스킹 결과</label>
+          <textarea id="maskedOutput" rows="18" readonly></textarea>
+          <div class="row">
+            <button id="copyMaskedBtn">복사</button>
+          </div>
+          <div class="chatgpt-link-row">
+            <a href="https://chatgpt.com" target="_blank" rel="noopener noreferrer" class="chatgpt-link">ChatGPT에 입력하기 ↗</a>
+          </div>
+        </section>
+      </div>
     </div>
-    <div id="unresolvedWarning" class="warning" hidden></div>
-  </section>
+  </div>
+
+  <div class="tab-panel" id="tabRestore" hidden>
+    <p id="maskRequiredNotice" class="hint">먼저 '마스킹하기' 탭에서 마스킹해주세요.</p>
+
+    <div class="mask-columns">
+      <div class="mask-col">
+        <section class="card" id="responseSection" hidden>
+          <div class="label-row">
+            <label for="responseInput">AI 응답</label>
+            <button type="button" class="link-btn" id="copyMaskedToResponseBtn">마스킹 결과 넣기</button>
+          </div>
+          <textarea id="responseInput" rows="18"></textarea>
+        </section>
+      </div>
+
+      <div class="mask-col">
+        <section class="card" id="restoredSection" hidden>
+          <label for="restoredOutput">복원 결과</label>
+          <textarea id="restoredOutput" rows="18" readonly></textarea>
+          <div class="row">
+            <button id="copyRestoredBtn">복사</button>
+          </div>
+          <div id="unresolvedWarning" class="warning" hidden></div>
+        </section>
+      </div>
+    </div>
+  </div>
 </div>
-<script src="masking.js?v=15"></script>
-<script src="app.js?v=12"></script>
+<div id="toast" class="toast" hidden>복사되었습니다</div>
+<script src="masking.js?v=16"></script>
+<script src="app.js?v=24"></script>
 </body>
 </html>
