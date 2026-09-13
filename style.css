@@ -42,6 +42,10 @@ h1 {
   margin: -8px 0 20px;
 }
 
+.chatgpt-link-row[hidden] {
+  display: none;
+}
+
 .chatgpt-link {
   font-size: 13px;
   font-weight: 600;
