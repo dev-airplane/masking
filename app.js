@@ -172,6 +172,23 @@
         source: 'manual',
         checked: true
       });
+
+      if (type === 'name') {
+        const trimmed = value.trim();
+        // 같은 이름의 다른 자리(추정 이름)도 이제는 확인된 이름으로 승격
+        state.detections.forEach((d) => {
+          if (d.type === 'name' && d.value === trimmed && d.source === 'heuristic') {
+            d.source = 'roster';
+            d.canonical = trimmed;
+          }
+        });
+        if (trimmed && !state.roster.includes(trimmed)) {
+          state.roster.push(trimmed);
+          renderRosterChips();
+          saveRoster();
+        }
+      }
+
       state.detections = Masking.assignTokens(state.detections);
 
       window.getSelection().removeAllRanges();

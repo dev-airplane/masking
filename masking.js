@@ -10,8 +10,14 @@ const Masking = (() => {
 
   const HONORIFIC_LOOKAHEAD = '(?=님|씨|군|양|께|에게|\\s?[가-힣]{0,3}(?:학생(?!회|들|증|부)|선생님|교수님|원장님|교사))';
   const NAME_HEURISTIC_RE = new RegExp(`(${SURNAMES.join('|')})[가-힣]{1,2}${HONORIFIC_LOOKAHEAD}`, 'g');
+  // "담임 박지훈"/"담임교사 박지훈"/"교사 김소연"/"작성자: 박지훈"/"이름: 박지훈"처럼 이름 앞에 직함·라벨이 오는 경우
+  const TITLE_PREFIX_RE = new RegExp(
+    `(?<=담임교사\\s?|담임\\s?|교사\\s?|(?:작성자|이름)\\s?:\\s?)(${SURNAMES.join('|')})[가-힣]{1,2}`,
+    'g'
+  );
   const PHONE_RE = /\b(01[016789]|02|0[3-6][1-5])[-.\s]?\d{3,4}[-.\s]?\d{4}\b/g;
   const ORG_RE = /[가-힣A-Za-z0-9]{2,20}(초등학교|중학교|고등학교|유치원|대학교|대학|학원|병원|주식회사|㈜|재단|협회|연구소|센터)/g;
+  const CLASS_RE = /\d+\s?학년\s?\d+\s?반/g;
 
   const TOKEN_PREFIX = { name: 'NAME', phone: 'PHONE', org: 'ORG' };
   const CONFIRMED_SOURCES = new Set(['roster', 'roster-given', 'manual']);
@@ -112,6 +118,14 @@ const Masking = (() => {
       }
     }
 
+    TITLE_PREFIX_RE.lastIndex = 0;
+    while ((match = TITLE_PREFIX_RE.exec(text)) !== null) {
+      const cand = { type: 'name', value: match[0], start: match.index, end: match.index + match[0].length, source: 'heuristic' };
+      if (!detections.some((d) => d.type === 'name' && overlaps(d, cand))) {
+        detections.push(cand);
+      }
+    }
+
     PHONE_RE.lastIndex = 0;
     while ((match = PHONE_RE.exec(text)) !== null) {
       detections.push({ type: 'phone', value: match[0], start: match.index, end: match.index + match[0].length, source: 'regex' });
@@ -120,6 +134,14 @@ const Masking = (() => {
     ORG_RE.lastIndex = 0;
     while ((match = ORG_RE.exec(text)) !== null) {
       detections.push({ type: 'org', value: match[0], start: match.index, end: match.index + match[0].length, source: 'regex' });
+    }
+
+    CLASS_RE.lastIndex = 0;
+    while ((match = CLASS_RE.exec(text)) !== null) {
+      const cand = { type: 'org', value: match[0], start: match.index, end: match.index + match[0].length, source: 'regex' };
+      if (!detections.some((d) => d.type === 'org' && overlaps(d, cand))) {
+        detections.push(cand);
+      }
     }
 
     return assignTokens(detections);

@@ -255,6 +255,10 @@ mark.hl.off {
   z-index: 10;
 }
 
+.selection-menu[hidden] {
+  display: none;
+}
+
 .selection-menu button {
   background: #333;
   color: #fff;
